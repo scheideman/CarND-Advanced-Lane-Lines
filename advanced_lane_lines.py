@@ -3,6 +3,7 @@ import matplotlib.image as mpimg
 import numpy as np
 import cv2
 import os
+from moviepy.editor import VideoFileClip
 
 test_images = os.listdir("test_images/")
 undistorted_images = os.listdir("undistorted_images/")
@@ -46,7 +47,7 @@ def calibrate_camera(nx,ny,file_path):
 
 def binarize_image(img, sobel_kernel = 3, sx_thresh =(20,100),sy_thresh =(25,255),s_thresh=(170,255) , sdir_thresh = (0,np.pi/2), hue_thresh = (20,50),lightness_thresh = (150,255)):
     
-    cv2.imshow("raw",img)
+    #cv2.imshow("raw",img)
     hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
     #hls = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
@@ -109,11 +110,15 @@ def binarize_image(img, sobel_kernel = 3, sx_thresh =(20,100),sy_thresh =(25,255
     #cv2.waitKey(0)
     return overall_binary
 
+
+
 def find_lane_lines(img):
     histogram = np.sum(img[img.shape[0]/2:,:], axis=0)
     out_img = np.dstack((img, img, img))*255
 
     midpoint = np.int(histogram.shape[0]/2)
+
+    # TODO check if max is greater than some threshold to be a line
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 
@@ -148,7 +153,7 @@ def find_lane_lines(img):
         # Draw the windows on the visualization image
         cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2) 
         cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
-        cv2.imshow("out_img",out_img)
+        #cv2.imshow("out_img",out_img)
         # Identify the nonzero pixels in x and y within the window
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
         good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
@@ -182,13 +187,13 @@ def find_lane_lines(img):
 
     out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
     out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
-    plt.imshow(out_img)
-    plt.plot(left_fitx, ploty, color='yellow')
-    plt.plot(right_fitx, ploty, color='yellow')
-    plt.xlim(0, 1280)
-    plt.ylim(720, 0)
-    plt.waitforbuttonpress()
-    plt.close()
+    #plt.imshow(out_img)
+    #plt.plot(left_fitx, ploty, color='yellow')
+    #plt.plot(right_fitx, ploty, color='yellow')
+    #plt.xlim(0, 1280)
+    #plt.ylim(720, 0)
+    #plt.waitforbuttonpress()
+    #plt.close()
     return left_fit, right_fit
 
 def update_line_from_next_frame(img,left_fit, right_fit):
@@ -232,14 +237,14 @@ def update_line_from_next_frame(img,left_fit, right_fit):
     cv2.fillPoly(window_img, np.int_([left_line_pts]), (0,255, 0))
     cv2.fillPoly(window_img, np.int_([right_line_pts]), (0,255, 0))
     result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
-    plt.imshow(result)
-    plt.plot(left_fitx, ploty, color='yellow')
-    plt.plot(right_fitx, ploty, color='yellow')
-    plt.xlim(0, 1280)
-    plt.ylim(720, 0)
+    #plt.imshow(result)
+    #plt.plot(left_fitx, ploty, color='yellow')
+    #plt.plot(right_fitx, ploty, color='yellow')
+    #plt.xlim(0, 1280)
+    #plt.ylim(720, 0)
 
-    plt.waitforbuttonpress()
-    plt.close()
+    #plt.waitforbuttonpress()
+    #plt.close()
     return left_fit, right_fit
 
 def get_radius_curvature(line_fit):
@@ -254,10 +259,28 @@ def get_radius_curvature(line_fit):
     
     curverad = ((1 + (2*fit_world[0]*y_eval*ym_per_pix + fit_world[1])**2)**1.5) / np.absolute(2*fit_world[0])
     return curverad
+    
 
 
+camera_mtx, distortion = calibrate_camera(9,6,"camera_cal/")
+src = np.float32([(600,450), (700,450), (200,720),(1150,720)])
+dst = np.float32([(300,0), (1000,0), (300,720), (1000,720)])
+M = cv2.getPerspectiveTransform(src, dst)
+Minv = cv2.getPerspectiveTransform(dst,src)
+TRACKING = False
 
+def process_image(image):
 
+    image = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+    undist = cv2.undistort(image,camera_mtx,distortion,camera_mtx, None)
+    binary = binarize_image(undist,sobel_kernel = 3, sx_thresh =(10,255),lightness_thresh = (100,255), sy_thresh=(25,255),s_thresh=(130,255))
+    warped = cv2.warpPerspective(binary, M, (1280,720)) 
+    left_fit, right_fit = find_lane_lines(warped)
+    if(TRACKING is False):
+        left_fit, right_fit = find_lane_lines(warped)
+    
+    # won't work binary image
+    return warped
 
 
 if __name__ == "__main__":
@@ -269,8 +292,13 @@ if __name__ == "__main__":
     #cv2.imshow("undist",undist)
     #cv2.imwrite("writeup_files/calibration.jpg",undist)
     #cv2.waitKey(0)
-    
 
+    white_output = 'project_video_test.mp4'
+    clip1 = VideoFileClip("project_video.mp4")
+    white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
+    white_clip.write_videofile(white_output, audio=False)
+
+    
     for i,x in enumerate(test_images):
         #img = cv2.imread("test_images/" + x)
         #cv2.imshow("Raw",img)
