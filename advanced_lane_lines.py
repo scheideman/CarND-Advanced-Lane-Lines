@@ -100,7 +100,7 @@ def get_line(linex_base,img,margin, minpix):
     nonzeroy = np.array(nonzero[0])
     nonzerox = np.array(nonzero[1])
 
-    linex_current = linex_base
+    x_current = linex_base
 
     lane_inds = []
 
@@ -109,8 +109,8 @@ def get_line(linex_base,img,margin, minpix):
         # Identify window boundaries in x and y (and right and left)
         win_y_low = img.shape[0] - (window+1)*window_height
         win_y_high = img.shape[0] - window*window_height
-        win_x_low = linex_current - margin
-        win_x_high = linex_current + margin
+        win_x_low = x_current - margin
+        win_x_high = x_current + margin
         # Draw the windows on the visualization image
         cv2.rectangle(out_img,(win_x_low,win_y_low),(win_x_high,win_y_high),(0,255,0), 2) 
         #cv2.imshow("out_img",out_img)
@@ -120,7 +120,7 @@ def get_line(linex_base,img,margin, minpix):
         lane_inds.append(good_inds)
         # If you found > minpix pixels, recenter next window on their mean position
         if len(good_inds) > minpix:
-            lanex_current = np.int(np.mean(nonzerox[good_inds]))
+            x_current = np.int(np.mean(nonzerox[good_inds]))
         
     # Concatenate the arrays of indices
     lane_inds = np.concatenate(lane_inds)
@@ -133,11 +133,11 @@ def get_line(linex_base,img,margin, minpix):
 
     # Generate x and y values for plotting
     ploty = np.linspace(0, img.shape[0]-1, img.shape[0] )
-    fitx = lane_fit[0]*ploty**2 + lane_fit[1]*ploty + lane_fit[2]
+    fitx = line_fit[0]*ploty**2 + line_fit[1]*ploty + line_fit[2]
 
     out_img[nonzeroy[lane_inds], nonzerox[lane_inds]] = [255, 0, 0]
     
-    return 
+    return line_fit
 
 
 def find_lane_lines(img):
@@ -150,6 +150,10 @@ def find_lane_lines(img):
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 
+
+    left_fit = get_line(leftx_base,img,100,50)
+    right_fit = get_line(rightx_base,img,100,50)
+    """
     # Choose the number of sliding windows
     nwindows = 9
     # Set height of windows
@@ -217,7 +221,9 @@ def find_lane_lines(img):
     #plt.ylim(720, 0)
     #plt.waitforbuttonpress()
     #plt.close()
+    """
     return left_fit, right_fit
+   
 
 def update_line_with_new_frame(img,left_fit, right_fit):
     nonzero = img.nonzero()
