@@ -1,6 +1,7 @@
 # Define a class to receive the characteristics of each line detection
 class Line():
     def __init__(self):
+        self.n = 10
         # was the line detected in the last iteration?
         self.detected = False  
         # x values of the last n fits of the line

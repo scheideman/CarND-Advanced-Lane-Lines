@@ -5,6 +5,7 @@ import cv2
 import os
 from camera_calibrate import calibrate_camera
 from moviepy.editor import VideoFileClip
+from line import Line
 
 test_images = os.listdir("test_images/")
 undistorted_images = os.listdir("undistorted_images/")
@@ -85,6 +86,58 @@ def binarize_image(img, sobel_kernel = 3, sx_thresh =(20,100),sy_thresh =(25,255
     #cv2.waitKey(0)
     return overall_binary
 
+def get_line(linex_base,img,margin, minpix):
+
+    out_img = np.dstack((img, img, img))*255
+    line = Line()
+    line.line_base_pos = abs(img.shape[1] / 2 - linex_base) * xm_per_pix 
+    # Choose the number of sliding windows
+    nwindows = 9
+    # Set height of windows
+    window_height = np.int(img.shape[0]/nwindows)
+    # Identify the x and y positions of all nonzero pixels in the image
+    nonzero = img.nonzero()
+    nonzeroy = np.array(nonzero[0])
+    nonzerox = np.array(nonzero[1])
+
+    linex_current = linex_base
+
+    lane_inds = []
+
+    # Step through the windows one by one
+    for window in range(nwindows):
+        # Identify window boundaries in x and y (and right and left)
+        win_y_low = img.shape[0] - (window+1)*window_height
+        win_y_high = img.shape[0] - window*window_height
+        win_x_low = linex_current - margin
+        win_x_high = linex_current + margin
+        # Draw the windows on the visualization image
+        cv2.rectangle(out_img,(win_x_low,win_y_low),(win_x_high,win_y_high),(0,255,0), 2) 
+        #cv2.imshow("out_img",out_img)
+        # Identify the nonzero pixels in x and y within the window
+        good_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_low) & (nonzerox < win_x_high)).nonzero()[0]
+        # Append these indices to the lists
+        lane_inds.append(good_inds)
+        # If you found > minpix pixels, recenter next window on their mean position
+        if len(good_inds) > minpix:
+            lanex_current = np.int(np.mean(nonzerox[good_inds]))
+        
+    # Concatenate the arrays of indices
+    lane_inds = np.concatenate(lane_inds)
+    
+    linex = nonzerox[lane_inds]
+    liney = nonzeroy[lane_inds] 
+    
+    # Fit a second order polynomial to each
+    line_fit = np.polyfit(liney, linex, 2)
+
+    # Generate x and y values for plotting
+    ploty = np.linspace(0, img.shape[0]-1, img.shape[0] )
+    fitx = lane_fit[0]*ploty**2 + lane_fit[1]*ploty + lane_fit[2]
+
+    out_img[nonzeroy[lane_inds], nonzerox[lane_inds]] = [255, 0, 0]
+    
+    return 
 
 
 def find_lane_lines(img):
@@ -155,11 +208,6 @@ def find_lane_lines(img):
     left_fit = np.polyfit(lefty, leftx, 2)
     right_fit = np.polyfit(righty, rightx, 2)
 
-    # Generate x and y values for plotting
-    ploty = np.linspace(0, img.shape[0]-1, img.shape[0] )
-    left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
-    right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
-
     out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
     out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
     #plt.imshow(out_img)
@@ -171,7 +219,7 @@ def find_lane_lines(img):
     #plt.close()
     return left_fit, right_fit
 
-def update_line_from_next_frame(img,left_fit, right_fit):
+def update_line_with_new_frame(img,left_fit, right_fit):
     nonzero = img.nonzero()
     nonzeroy = np.array(nonzero[0])
     nonzerox = np.array(nonzero[1])
@@ -275,7 +323,12 @@ def process_image(image):
         left_fit, right_fit = find_lane_lines(warped)
 
 
+    left_radius = get_radius_curvature(left_fit)
+    right_radius = get_radius_curvature(right_fit)
+
     result = visualize_lane(left_fit,right_fit, undist,warped)
+    print("Left: ", left_radius)
+    print("Right: ", right_radius)
     cv2.imshow("result", result)
     cv2.waitKey(0)
     # won't work binary image
@@ -286,7 +339,7 @@ if __name__ == "__main__":
 
 
     white_output = 'project_video_test.mp4'
-    clip1 = VideoFileClip("challenge_video.mp4")
+    clip1 = VideoFileClip("project_video.mp4")
     white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
     white_clip.write_videofile(white_output, audio=False)
 
