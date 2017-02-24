@@ -3,6 +3,7 @@ import matplotlib.image as mpimg
 import numpy as np
 import cv2
 import os
+from camera_calibrate import calibrate_camera
 from moviepy.editor import VideoFileClip
 
 test_images = os.listdir("test_images/")
@@ -12,38 +13,12 @@ undistorted_images = os.listdir("undistorted_images/")
 ym_per_pix = 30/720 # meters per pixel in y dimension
 xm_per_pix = 3.7/700 # meters per pixel in x dimension
 
-def calibrate_camera(nx,ny,file_path):
-    camera_cal_images = os.listdir(file_path)
-
-    objpoints = []
-    imgpoints = []
-
-    objp = np.zeros((nx*ny,3),np.float32)
-    objp[:,:2] = np.mgrid[0:nx,0:ny].T.reshape(-1,2) # set x,y coordinats. z is always zero
-
-    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
-
-    for i,x in enumerate(camera_cal_images):
-        img = mpimg.imread(file_path + x)
-        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        ret, corners = cv2.findChessboardCorners(gray,(nx,ny), None)
-
-        if ret:
-            objpoints.append(objp)
-
-            #increase accuracy
-            cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
-            imgpoints.append(corners)
-
-            #cv2.drawChessboardCorners(img,(nx,ny),corners,ret)
-            #cv2.imshow("Corners",img)
-            #cv2.waitKey(250)
-
-    ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None) 
-    
-    print("Camera calibration status: {}".format(ret))
-
-    return mtx, dist
+camera_mtx, distortion = calibrate_camera(9,6,"camera_cal/")
+src = np.float32([(600,450), (700,450), (200,720),(1150,720)])
+dst = np.float32([(300,0), (1000,0), (300,720), (1000,720)])
+M = cv2.getPerspectiveTransform(src, dst)
+Minv = cv2.getPerspectiveTransform(dst,src)
+TRACKING = False
 
 def binarize_image(img, sobel_kernel = 3, sx_thresh =(20,100),sy_thresh =(25,255),s_thresh=(170,255) , sdir_thresh = (0,np.pi/2), hue_thresh = (20,50),lightness_thresh = (150,255)):
     
@@ -260,14 +235,34 @@ def get_radius_curvature(line_fit):
     curverad = ((1 + (2*fit_world[0]*y_eval*ym_per_pix + fit_world[1])**2)**1.5) / np.absolute(2*fit_world[0])
     return curverad
     
+def visualize_lane(left_fit, right_fit, img, warped):
+
+    ploty = np.linspace(0, 719, num=720)
+
+    left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
+    right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
+    # Create an image to draw the lines on
+    warp_zero = np.zeros_like(warped).astype(np.uint8)
+    color_warp = np.dstack((warp_zero, warp_zero, warp_zero))
+
+    # Recast the x and y points into usable format for cv2.fillPoly()
+    pts_left = np.array([np.transpose(np.vstack([left_fitx, ploty]))])
+    pts_right = np.array([np.flipud(np.transpose(np.vstack([right_fitx, ploty])))])
+    pts = np.hstack((pts_left, pts_right))
+
+    # Draw the lane onto the warped blank image
+    cv2.fillPoly(color_warp, np.int_([pts]), (0,255, 0))
+
+    # Warp the blank back to original image space using inverse perspective matrix (Minv)
+    newwarp = cv2.warpPerspective(color_warp, Minv, (img.shape[1], img.shape[0])) 
+    # Combine the result with the original image
+    result = cv2.addWeighted(img, 1, newwarp, 0.3, 0)
+
+    return result
 
 
-camera_mtx, distortion = calibrate_camera(9,6,"camera_cal/")
-src = np.float32([(600,450), (700,450), (200,720),(1150,720)])
-dst = np.float32([(300,0), (1000,0), (300,720), (1000,720)])
-M = cv2.getPerspectiveTransform(src, dst)
-Minv = cv2.getPerspectiveTransform(dst,src)
-TRACKING = False
+
+
 
 def process_image(image):
 
@@ -278,23 +273,20 @@ def process_image(image):
     left_fit, right_fit = find_lane_lines(warped)
     if(TRACKING is False):
         left_fit, right_fit = find_lane_lines(warped)
-    
+
+
+    result = visualize_lane(left_fit,right_fit, undist,warped)
+    cv2.imshow("result", result)
+    cv2.waitKey(0)
     # won't work binary image
-    return warped
+    return result
 
 
 if __name__ == "__main__":
-    #camera_mtx, distortion = calibrate_camera(9,6,"camera_cal/")
 
-    #img = mpimg.imread("camera_cal/calibration1.jpg")
-    #cv2.imshow("raw",img)
-    #undist = cv2.undistort(img,camera_mtx,distortion,camera_mtx, None)
-    #cv2.imshow("undist",undist)
-    #cv2.imwrite("writeup_files/calibration.jpg",undist)
-    #cv2.waitKey(0)
 
     white_output = 'project_video_test.mp4'
-    clip1 = VideoFileClip("project_video.mp4")
+    clip1 = VideoFileClip("challenge_video.mp4")
     white_clip = clip1.fl_image(process_image) #NOTE: this function expects color images!!
     white_clip.write_videofile(white_output, audio=False)
 
