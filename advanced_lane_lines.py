@@ -11,8 +11,8 @@ test_images = os.listdir("test_images/")
 undistorted_images = os.listdir("undistorted_images/")
 
 # Define conversions in x and y from pixels space to meters
-ym_per_pix = 30/720 # meters per pixel in y dimension
-xm_per_pix = 3.7/700 # meters per pixel in x dimension
+ym_per_pix = 30/720.0 # meters per pixel in y dimension
+xm_per_pix = 3.7/700.0 # meters per pixel in x dimension
 
 camera_mtx, distortion = calibrate_camera(9,6,"camera_cal/")
 src = np.float32([(600,450), (700,450), (200,720),(1150,720)])
@@ -47,14 +47,14 @@ class AdvancedLaneLines():
             self.TRACKING,tmp_left, tmp_right = update_lane_lines_with_new_frame(warped,self.left_line, self.right_line)
 
         
-        print("self.TRACKING: ", self.TRACKING)
+        #print("self.TRACKING: ", self.TRACKING)
         if(self.TRACKING is False):
             self.lost_track_count += 1
             if(self.FIRST):
                 self.FIRST = False
-                self.TRACKING, left_line, right_line, self.center_offset = find_lane_lines(warped, self.right_line,self.left_line)
+                self.TRACKING, left_line, right_line = find_lane_lines(warped, self.right_line,self.left_line)
             elif(self.lost_track_count >= 5):
-                self.TRACKING, left_line, right_line, self.center_offset = find_lane_lines(warped, self.right_line,self.left_line)
+                self.TRACKING, left_line, right_line = find_lane_lines(warped, self.right_line,self.left_line)
         
         #self.TRACKING=False
         
@@ -62,10 +62,10 @@ class AdvancedLaneLines():
         ##right_radius = get_radius_curvature(right_fit)
 
         result = self.visualize_lane(self.left_line,self.right_line, undist,warped)
-        print("Left: ", self.left_line.radius_of_curvature)
-        print("Right: ", self.right_line.radius_of_curvature)
+        #print("Left: ", self.left_line.radius_of_curvature)
+        #print("Right: ", self.right_line.radius_of_curvature)
         #cv2.imshow("warped", warped)
-        cv2.imshow("result", result)
+        cv2.imshow("result", cv2.cvtColor(result,cv2.COLOR_RGB2BGR))
         #cv2.waitKey(25)
         # won't work binary image
         return result
@@ -156,15 +156,19 @@ class AdvancedLaneLines():
         font = cv2.FONT_HERSHEY_SIMPLEX
         avg_rad = (left_line.radius_of_curvature+right_line.radius_of_curvature) / 2
 
+        lane_cent = (left_line.bestx[-1] + (right_line.bestx[-1]-left_line.bestx[-1])/2)
+        #print("Lane center: ", lane_cent)
+        #print(img.shape[1]/2)
+        center_offset =  (lane_cent - (img.shape[1]/2))*xm_per_pix
         position = ""
-        if(self.center_offset < 0):
+        if(center_offset < 0):
             position = "to the right"
             self.center_offset = self.center_offset*-1
-        elif(self.center_offset > 0):
+        elif(center_offset > 0):
             position = "to the left"
 
         cv2.putText(result,'Radius of curvature: {0}(m)'.format(round(avg_rad)),(0,50), font, 1.2,(255,255,255),2,cv2.LINE_AA)
-        cv2.putText(result,'Offset from center of lane: {0:.4f}(m) {1}'.format(self.center_offset,position),(0,95), font, 1.2,(255,255,255),2,cv2.LINE_AA)
+        cv2.putText(result,'Offset from center of lane: {0:.4f}(m) {1}'.format(center_offset,position),(0,95), font, 1.2,(255,255,255),2,cv2.LINE_AA)
 
         return result
 

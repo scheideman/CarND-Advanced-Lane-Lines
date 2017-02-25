@@ -12,7 +12,7 @@ xm_per_pix = 3.7/700 # meters per pixel in x dimension
 class Line():
     
     def __init__(self):
-        self.n = 20
+        self.n = 15
         # was the line detected in the last iteration?
         self.detected = False  
         # x values of the last n fits of the line
@@ -73,8 +73,8 @@ def get_line(linex_base,img,margin, minpix,old_line):
             countGoodWindows += 1
     # Concatenate the arrays of indices
     lane_inds = np.concatenate(lane_inds)
-    print("GoodWindows: ", countGoodWindows)
-    cv2.imshow("out_img",out_img)
+    #print("GoodWindows: ", countGoodWindows)
+    #cv2.imshow("out_img",out_img)
     
     linex = nonzerox[lane_inds]
     liney = nonzeroy[lane_inds] 
@@ -96,7 +96,7 @@ def get_line(linex_base,img,margin, minpix,old_line):
     line.best_fit = np.polyfit(ploty, line.bestx, 2)
     line.current_fit = line_fit
     line.radius_of_curvature = get_radius_curvature(line.best_fit)
-    line.line_base_pos = abs(img.shape[1] / 2 - linex_base) * xm_per_pix 
+    line.line_base_pos = abs(img.shape[1] / 2 - fitx[-1]) * xm_per_pix 
     line.allx = linex
     line.ally = liney
 
@@ -117,22 +117,28 @@ def find_lane_lines(img,right_line,left_line):
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 
+    #center_offset =((img.shape[1]/2) - ((rightx_base - leftx_base)/2 + leftx_base))*xm_per_pix 
+
     lane_width_pixels = rightx_base-leftx_base
-    print("lane_width_pixels: ",lane_width_pixels)
+    #print("lane_width_pixels: ",lane_width_pixels)
     
-    #if(sanity_check(img) is False):
-    #    return False, None, None
+    if(sanity_check(img) is False):
+        return False, right_line, left_line
     
-    right_line = get_line(rightx_base,img,100, 50, right_line)
-    left_line = get_line(leftx_base,img,100, 50, left_line)
+    new_right_line = get_line(rightx_base,img,100, 50, right_line)
+    new_left_line = get_line(leftx_base,img,100, 50, left_line)
     
-    center_offset =((img.shape[1]/2) - ((rightx_base - leftx_base)/2 + leftx_base))*xm_per_pix 
+    if(abs(right_line.radius_of_curvature - left_line.radius_of_curvature)>10000):
+        return False, right_line, left_line
+
+
+   
     
-    cv2.imshow("warped",img)
-    cv2.waitKey(0)
+    #cv2.imshow("warped",img)
+    #cv2.waitKey(1)
     plt.close()
 
-    return True, left_line, right_line, center_offset
+    return True, new_left_line, new_right_line
 
 def sanity_check(img):
     histogram = np.sum(img[img.shape[0]/2:,:], axis=0)
@@ -171,7 +177,7 @@ def update_lane_lines_with_new_frame(img,left_line, right_line):
     
     left_line = update_line(img,left_line)
     right_line = update_line(img,right_line)
-    print("Update!!")
+    #print("Update!!")
     return True,left_line, right_line
 
 def update_line(img,line):
@@ -209,8 +215,8 @@ def update_line(img,line):
     # Draw the lane onto the warped blank image
     cv2.fillPoly(window_img, np.int_([line_line_pts]), (0,255, 0))
     result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
-    cv2.imshow("out_img",out_img)
-    cv2.waitKey(50)
+    #cv2.imshow("out_img",out_img)
+    
 
     if(len(line.recent_xfitted) > line.n):
         line.recent_xfitted.pop(0)
@@ -221,11 +227,13 @@ def update_line(img,line):
     line.best_fit = np.polyfit(ploty, line.bestx, 2)
     line.current_fit = line_fit
     line.radius_of_curvature = get_radius_curvature(line.best_fit)
-    line.line_base_pos = abs(img.shape[1] / 2 - line_fitx[0]) * xm_per_pix 
+    line.line_base_pos = abs(img.shape[1] / 2 - line_fitx[-1]) * xm_per_pix 
+    #print(line_fitx[0])
+    #print(img.shape[0]/2)
     line.allx = linex
     line.ally = liney
-    print(line.line_base_pos, " (m)")
-
+    #print(line.line_base_pos, " (m)")
+    #cv2.waitKey(0)
     return line
 
 def get_radius_curvature(line_fit):
