@@ -19,8 +19,6 @@ src = np.float32([(600,450), (700,450), (200,720),(1150,720)])
 dst = np.float32([(300,0), (1000,0), (300,720), (1000,720)])
 M = cv2.getPerspectiveTransform(src, dst)
 Minv = cv2.getPerspectiveTransform(dst,src)
-TRACKING = False
-
 
 
 
@@ -33,6 +31,8 @@ class AdvancedLaneLines():
         self.right_line = Line()
         self.TRACKING =False
         self.center_offset = 0
+        self.lost_track_count = 0
+        self.FIRST = True
 
     def process_image(self,image):
 
@@ -43,15 +43,19 @@ class AdvancedLaneLines():
         tmp_left = Line()
         tmp_right = Line()
         if(self.TRACKING):
+            self.lost_track_count = 0
             self.TRACKING,tmp_left, tmp_right = update_lane_lines_with_new_frame(warped,self.left_line, self.right_line)
 
+        
         print("self.TRACKING: ", self.TRACKING)
         if(self.TRACKING is False):
-            self.TRACKING, tmp_left, tmp_right, self.center_offset = find_lane_lines(warped, self.right_line,self.left_line)
+            self.lost_track_count += 1
+            if(self.FIRST):
+                self.FIRST = False
+                self.TRACKING, left_line, right_line, self.center_offset = find_lane_lines(warped, self.right_line,self.left_line)
+            elif(self.lost_track_count >= 5):
+                self.TRACKING, left_line, right_line, self.center_offset = find_lane_lines(warped, self.right_line,self.left_line)
         
-        self.left_line = tmp_left
-        self.right_line = tmp_right
-
         #self.TRACKING=False
         
         ##left_radius = get_radius_curvature(left_fit)
@@ -60,9 +64,9 @@ class AdvancedLaneLines():
         result = self.visualize_lane(self.left_line,self.right_line, undist,warped)
         print("Left: ", self.left_line.radius_of_curvature)
         print("Right: ", self.right_line.radius_of_curvature)
-        cv2.imshow("warped", warped)
+        #cv2.imshow("warped", warped)
         cv2.imshow("result", result)
-        cv2.waitKey(50)
+        #cv2.waitKey(25)
         # won't work binary image
         return result
 
@@ -76,7 +80,6 @@ class AdvancedLaneLines():
         saturation = hls[:,:,2]
         hue = hls[:,:,0]
         lightness = hls[:,:,1]
-        
         
         sobelx = cv2.Sobel(gray, cv2.CV_64F, 1, 0,sobel_kernel) 
         sobely = cv2.Sobel(gray, cv2.CV_64F, 0, 1,sobel_kernel)
@@ -96,15 +99,8 @@ class AdvancedLaneLines():
         sybinary = np.zeros_like(sdir_binary) 
         sybinary[(scaled_sobel >= sy_thresh[0]) & (scaled_sobel <= sy_thresh[1])] = 1 
 
-        #kernel = np.ones((5,5),np.uint8)
-        #sybinary = cv2.dilate(sybinary,kernel,iterations = 1)
-
-
         s_binary = np.zeros_like(sdir_binary) 
         s_binary[(saturation >= s_thresh[0]) & (saturation <= s_thresh[1])] = 1
-        #kernel = np.ones((5,5),np.uint8)
-        #s_binary = cv2.dilate(s_binary,kernel,iterations = 1)
-
 
         hue_binary = np.zeros_like(sdir_binary)
         hue_binary[ (hue >= hue_thresh[0]) & (hue <= hue_thresh[1])] = 1
