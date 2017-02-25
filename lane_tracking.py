@@ -4,6 +4,10 @@ import matplotlib.image as mpimg
 import numpy as np
 import cv2
 import os
+
+ym_per_pix = 30/720 # meters per pixel in y dimension
+xm_per_pix = 3.7/700 # meters per pixel in x dimension
+
 # Define a class to receive the characteristics of each line detection
 class Line():
     def __init__(self):
@@ -30,14 +34,30 @@ class Line():
         self.ally = None
 
 def find_lane_lines(img):
+    right_line = Line()
+    left_line = Line()
+
     histogram = np.sum(img[img.shape[0]/2:,:], axis=0)
     out_img = np.dstack((img, img, img))*255
 
     midpoint = np.int(histogram.shape[0]/2)
-
+    #plt.plot(histogram)
+    #plt.waitforbuttonpress()
+    #plt.close()
     # TODO check if max is greater than some threshold to be a line
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
+
+    print("diffleft: ",leftx_base)
+    print("diffright:", rightx_base)
+    lane_width_pixels = rightx_base-leftx_base
+
+    if(sanity_check(img) is False):
+        return False, None, None
+    
+
+    center_offset = (img.shape[1]/2) - ((rightx_base - leftx_base)/2 + leftx_base)
+    print("offset: " , center_offset)
     
     # Choose the number of sliding windows
     nwindows = 9
@@ -106,11 +126,39 @@ def find_lane_lines(img):
     #plt.ylim(720, 0)
     #plt.waitforbuttonpress()
     #plt.close()
+
     
-    return left_fit, right_fit
-   
+    
+    return True, left_fit, right_fit
+
+def sanity_check(img):
+    histogram = np.sum(img[img.shape[0]/2:,:], axis=0)
+    out_img = np.dstack((img, img, img))*255
+
+    midpoint = np.int(histogram.shape[0]/2)
+    leftx_base = np.argmax(histogram[:midpoint])
+    rightx_base = np.argmax(histogram[midpoint:]) + midpoint
+
+    lane_width_pixels = rightx_base-leftx_base
+
+    if(leftx_base <= 45 or rightx_base <= 45):
+        #bad binary image
+        return False
+    if(abs(lane_width_pixels - lane_width_pixels_top) > 150):
+        # lanes not parallel
+        return False
+    if(lane_width_pixels < 500 or lane_width_pixels > 750):
+        # lane not the right width 
+        return False
+
+    return True
+
 
 def update_line_with_new_frame(img,left_fit, right_fit):
+
+    if(sanity_check(img) is False):
+        return False, None, None
+
     nonzero = img.nonzero()
     nonzeroy = np.array(nonzero[0])
     nonzerox = np.array(nonzero[1])
@@ -159,4 +207,19 @@ def update_line_with_new_frame(img,left_fit, right_fit):
 
     #plt.waitforbuttonpress()
     #plt.close()
+    
+
     return left_fit, right_fit
+
+def get_radius_curvature(line_fit):
+    ploty = np.linspace(0, 719, num=720)
+
+    #bottom of image, ie where the car is 
+    y_eval = np.max(ploty)
+
+    plotx = line_fit[0]*ploty**2 + line_fit[1]*ploty + line_fit[2]
+
+    fit_world = np.polyfit(ploty*ym_per_pix, plotx*xm_per_pix, 2)
+    
+    curverad = ((1 + (2*fit_world[0]*y_eval*ym_per_pix + fit_world[1])**2)**1.5) / np.absolute(2*fit_world[0])
+    return curverad

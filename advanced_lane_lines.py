@@ -5,7 +5,7 @@ import cv2
 import os
 from camera_calibrate import calibrate_camera
 from moviepy.editor import VideoFileClip
-from lane_tracking import find_lane_lines, update_line_with_new_frame, Line
+from lane_tracking import find_lane_lines, update_line_with_new_frame, Line, get_radius_curvature
 
 test_images = os.listdir("test_images/")
 undistorted_images = os.listdir("undistorted_images/")
@@ -87,19 +87,6 @@ def binarize_image(img, sobel_kernel = 3, sx_thresh =(20,100),sy_thresh =(25,255
     return overall_binary
 
 
-
-def get_radius_curvature(line_fit):
-    ploty = np.linspace(0, 719, num=720)
-
-    #bottom of image, ie where the car is 
-    y_eval = np.max(ploty)
-
-    plotx = line_fit[0]*ploty**2 + line_fit[1]*ploty + line_fit[2]
-
-    fit_world = np.polyfit(ploty*ym_per_pix, plotx*xm_per_pix, 2)
-    
-    curverad = ((1 + (2*fit_world[0]*y_eval*ym_per_pix + fit_world[1])**2)**1.5) / np.absolute(2*fit_world[0])
-    return curverad
     
 def visualize_lane(left_fit, right_fit, img, warped):
 
@@ -136,17 +123,22 @@ def process_image(image):
     undist = cv2.undistort(image,camera_mtx,distortion,camera_mtx, None)
     binary = binarize_image(undist,sobel_kernel = 3, sx_thresh =(10,255),lightness_thresh = (100,255), sy_thresh=(25,255),s_thresh=(130,255))
     warped = cv2.warpPerspective(binary, M, (1280,720)) 
-    left_fit, right_fit = find_lane_lines(warped)
-    if(TRACKING is False):
-        left_fit, right_fit = find_lane_lines(warped)
-
-
+    left_fit = None
+    right_fit = None
+    if(TRACKING):
+        left_fit, right_fit = update_line_with_new_frame(warped)
+        
+    if(TRACKING is False)
+        TRACKING, left_fit, right_fit = find_lane_lines(warped)
+        
+    print("TRACKING: ", TRACKING)
     left_radius = get_radius_curvature(left_fit)
     right_radius = get_radius_curvature(right_fit)
 
     result = visualize_lane(left_fit,right_fit, undist,warped)
     print("Left: ", left_radius)
     print("Right: ", right_radius)
+    #cv2.imshow("warped", warped)
     cv2.imshow("result", result)
     cv2.waitKey(0)
     # won't work binary image
