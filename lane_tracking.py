@@ -90,9 +90,9 @@ def get_line(linex_base,img,margin, minpix,old_line):
     line.diffs = np.subtract(line_fit,line.current_fit)
     line.recent_xfitted.append(fitx)
     line.bestx = np.mean(line.recent_xfitted,axis=0)
-    line.best_fit = np.polyfit(liney, line.bestx, 2)
+    line.best_fit = np.polyfit(ploty, line.bestx, 2)
     line.current_fit = line_fit
-    line.radius_of_curvature = get_radius_curvature(best_fit)
+    line.radius_of_curvature = get_radius_curvature(line.best_fit)
     line.line_base_pos = abs(img.shape[1] / 2 - linex_base) * xm_per_pix 
     line.allx = linex
     line.ally = liney
@@ -100,12 +100,9 @@ def get_line(linex_base,img,margin, minpix,old_line):
 
     out_img[nonzeroy[lane_inds], nonzerox[lane_inds]] = [255, 0, 0]
     
-    return line_fit
+    return line
 
-def find_lane_lines(img):
-    right_line = Line()
-    left_line = Line()
-
+def find_lane_lines(img,right_line,left_line):
     histogram = np.sum(img[img.shape[0]/2:,:], axis=0)
     out_img = np.dstack((img, img, img))*255
 
@@ -121,84 +118,15 @@ def find_lane_lines(img):
     print("diffright:", rightx_base)
     lane_width_pixels = rightx_base-leftx_base
 
-    if(sanity_check(img) is False):
-        return False, None, None
+    #if(sanity_check(img) is False):
+    #    return False, None, None
     
-
-    center_offset = (img.shape[1]/2) - ((rightx_base - leftx_base)/2 + leftx_base)
-    print("offset: " , center_offset)
+    right_line = get_line(rightx_base,img,100, 50, right_line)
+    left_line = get_line(leftx_base,img,100, 50, left_line)
     
-    # Choose the number of sliding windows
-    nwindows = 9
-    # Set height of windows
-    window_height = np.int(img.shape[0]/nwindows)
-    # Identify the x and y positions of all nonzero pixels in the image
-    nonzero = img.nonzero()
-    nonzeroy = np.array(nonzero[0])
-    nonzerox = np.array(nonzero[1])
-    # Current positions to be updated for each window
-    leftx_current = leftx_base
-    rightx_current = rightx_base
-    # Set the width of the windows +/- margin
-    margin = 100
-    # Set minimum number of pixels found to recenter window
-    minpix = 50
-    # Create empty lists to receive left and right lane pixel indices
-    left_lane_inds = []
-    right_lane_inds = []
-
-    # Step through the windows one by one
-    for window in range(nwindows):
-        # Identify window boundaries in x and y (and right and left)
-        win_y_low = img.shape[0] - (window+1)*window_height
-        win_y_high = img.shape[0] - window*window_height
-        win_xleft_low = leftx_current - margin
-        win_xleft_high = leftx_current + margin
-        win_xright_low = rightx_current - margin
-        win_xright_high = rightx_current + margin
-        # Draw the windows on the visualization image
-        cv2.rectangle(out_img,(win_xleft_low,win_y_low),(win_xleft_high,win_y_high),(0,255,0), 2) 
-        cv2.rectangle(out_img,(win_xright_low,win_y_low),(win_xright_high,win_y_high),(0,255,0), 2) 
-        #cv2.imshow("out_img",out_img)
-        # Identify the nonzero pixels in x and y within the window
-        good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (nonzerox < win_xleft_high)).nonzero()[0]
-        good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (nonzerox < win_xright_high)).nonzero()[0]
-        # Append these indices to the lists
-        left_lane_inds.append(good_left_inds)
-        right_lane_inds.append(good_right_inds)
-        # If you found > minpix pixels, recenter next window on their mean position
-        if len(good_left_inds) > minpix:
-            leftx_current = np.int(np.mean(nonzerox[good_left_inds]))
-        if len(good_right_inds) > minpix:        
-            rightx_current = np.int(np.mean(nonzerox[good_right_inds]))
-
-    # Concatenate the arrays of indices
-    left_lane_inds = np.concatenate(left_lane_inds)
-    right_lane_inds = np.concatenate(right_lane_inds)
-
-    # Extract left and right line pixel positions
-    leftx = nonzerox[left_lane_inds]
-    lefty = nonzeroy[left_lane_inds] 
-    rightx = nonzerox[right_lane_inds]
-    righty = nonzeroy[right_lane_inds] 
-
-    # Fit a second order polynomial to each
-    left_fit = np.polyfit(lefty, leftx, 2)
-    right_fit = np.polyfit(righty, rightx, 2)
-
-    out_img[nonzeroy[left_lane_inds], nonzerox[left_lane_inds]] = [255, 0, 0]
-    out_img[nonzeroy[right_lane_inds], nonzerox[right_lane_inds]] = [0, 0, 255]
-    #plt.imshow(out_img)
-    #plt.plot(left_fitx, ploty, color='yellow')
-    #plt.plot(right_fitx, ploty, color='yellow')
-    #plt.xlim(0, 1280)
-    #plt.ylim(720, 0)
-    #plt.waitforbuttonpress()
-    #plt.close()
-
-    
-    
-    return True, left_fit, right_fit
+    center_offset =((img.shape[1]/2) - ((rightx_base - leftx_base)/2 + leftx_base))*xm_per_pix 
+        
+    return True, left_line, right_line, center_offset
 
 def sanity_check(img):
     histogram = np.sum(img[img.shape[0]/2:,:], axis=0)
@@ -208,7 +136,14 @@ def sanity_check(img):
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 
+    histogram_top = np.sum(img[:img.shape[0]/2,:], axis=0)
+    leftx_base_top = np.argmax(histogram_top[:midpoint])
+    rightx_base_top = np.argmax(histogram_top[midpoint:]) + midpoint
+
+
     lane_width_pixels = rightx_base-leftx_base
+    lane_width_pixels_top = rightx_base_top-leftx_base_top
+
 
     if(leftx_base <= 45 or rightx_base <= 45):
         #bad binary image
@@ -223,11 +158,16 @@ def sanity_check(img):
     return True
 
 
-def update_line_with_new_frame(img,left_fit, right_fit):
+def update_lane_lines_with_new_frame(img,left_line, right_line):
 
     if(sanity_check(img) is False):
         return False, None, None
+    
+    left_line = update_line(img,left_line)
+    right_line = update_line(img,right_line)
+    print("Update!!")
 
+    """
     nonzero = img.nonzero()
     nonzeroy = np.array(nonzero[0])
     nonzerox = np.array(nonzero[1])
@@ -276,11 +216,11 @@ def update_line_with_new_frame(img,left_fit, right_fit):
 
     #plt.waitforbuttonpress()
     #plt.close()
-    
+    """
 
-    return left_fit, right_fit
+    return True,left_line, right_line
 
-def update_line(img,line, linex_base):
+def update_line(img,line):
 
     if(sanity_check(img) is False):
         return False, None, None
@@ -332,10 +272,10 @@ def update_line(img,line, linex_base):
     line.diffs = np.subtract(line_fit,line.current_fit)
     line.recent_xfitted.append(line_fitx)
     line.bestx = np.mean(line.recent_xfitted,axis=0)
-    line.best_fit = np.polyfit(liney, line.bestx, 2)
+    line.best_fit = np.polyfit(ploty, line.bestx, 2)
     line.current_fit = line_fit
-    line.radius_of_curvature = get_radius_curvature(best_fit)
-    line.line_base_pos = abs(img.shape[1] / 2 - linex_base) * xm_per_pix 
+    line.radius_of_curvature = get_radius_curvature(line.best_fit)
+    line.line_base_pos = abs(img.shape[1] / 2 - line_fitx[0]) * xm_per_pix 
     line.allx = linex
     line.ally = liney
 
