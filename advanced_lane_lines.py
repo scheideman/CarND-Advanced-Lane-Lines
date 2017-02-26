@@ -20,10 +20,6 @@ dst = np.float32([(300,0), (1000,0), (300,720), (1000,720)])
 M = cv2.getPerspectiveTransform(src, dst)
 Minv = cv2.getPerspectiveTransform(dst,src)
 
-
-
-
-
 class AdvancedLaneLines():
 
     def __init__(self):
