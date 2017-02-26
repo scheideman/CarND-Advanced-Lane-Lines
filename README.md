@@ -22,7 +22,7 @@ The goals / steps of this project are the following:
 * For camera calibration you need two arrays, one to hold where the points should be in 3D space (`objpoints`) and one for where the `cv2.findChessboardCorners` detects 2D points in the image (`imgpoints`). The objpoints have x,y,z coordinates and are generated using the numpy `mgrid` function. For each image if `cv2.findChessboardCorners` correctly finds the corners in the image new object points and image points are appended to `objpoints` and `imgpoints` array; but first the image points are corrected using the `cornerSubPix` function to reduce the re-projection error. With the two arrays generated I call `cv2.calibrateCamera` to get the camera matrix and distortion coefficients. The reprojection error I get is 0.83 which is within the acceptable range. 
 * With the camera matrix, distortion coefficients and `cv2.undistort` function  you can undistort images. Below shows an example image undistored using the method 
 
-![Alt text](https://github.com/scheideman/CarND-Advanced-Lane-Lines/blob/master/writeup_files/calibration1.jpg?raw=true "Calibration Image")
+![Alt text](https://github.com/scheideman/CarND-Advanced-Lane-Lines/blob/master/output_images/calibration1.jpg?raw=true "Calibration Image")
 
 
 ## Pipeline
