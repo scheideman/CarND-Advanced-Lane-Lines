@@ -26,8 +26,16 @@ The goals / steps of this project are the following:
 
 
 ## Pipeline
-
-
+1. First undistort image using steps above
+  * TODO: Image goes here
+2. Get a binary image, see `binarize_image` function in advanced_lane_lines.py
+ * To get a binary image I used a combination of thresholding on the sobel filter applied in both the x, y directions, and      thresholding on the saturation and lighness channels of the HLS colorspace.  
+ * TODO: Example image
+3. Use perspective transform to get top-down view of lane lines
+ * TODO explanation and example image
+4. Find lane lines by fitting polynomial to identified pixels
+ * TODO explanation and image
+5. Find radius of curvature and position of the car with respect 
 ---
 #### Video
 
