@@ -46,8 +46,6 @@ class AdvancedLaneLines():
             self.lost_track_count = 0
             self.TRACKING,tmp_left, tmp_right = update_lane_lines_with_new_frame(warped,self.left_line, self.right_line)
 
-        
-        #print("self.TRACKING: ", self.TRACKING)
         if(self.TRACKING is False):
             self.lost_track_count += 1
             if(self.FIRST):
@@ -55,11 +53,6 @@ class AdvancedLaneLines():
                 self.TRACKING, left_line, right_line = find_lane_lines(warped, self.right_line,self.left_line)
             elif(self.lost_track_count >= 5):
                 self.TRACKING, left_line, right_line = find_lane_lines(warped, self.right_line,self.left_line)
-        
-        #self.TRACKING=False
-        
-        ##left_radius = get_radius_curvature(left_fit)
-        ##right_radius = get_radius_curvature(right_fit)
 
         result = self.visualize_lane(self.left_line,self.right_line, undist,warped)
         #print("Left: ", self.left_line.radius_of_curvature)
@@ -133,6 +126,8 @@ class AdvancedLaneLines():
 
         left_fit = left_line.best_fit
         right_fit = right_line.best_fit
+        if(left_fit ==None or right_fit == None):
+            return img
 
         left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
         right_fitx = right_fit[0]*ploty**2 + right_fit[1]*ploty + right_fit[2]
@@ -157,8 +152,6 @@ class AdvancedLaneLines():
         avg_rad = (left_line.radius_of_curvature+right_line.radius_of_curvature) / 2
 
         lane_cent = (left_line.bestx[-1] + (right_line.bestx[-1]-left_line.bestx[-1])/2)
-        #print("Lane center: ", lane_cent)
-        #print(img.shape[1]/2)
         center_offset =  (lane_cent - (img.shape[1]/2))*xm_per_pix
         position = ""
         if(center_offset < 0):
@@ -176,8 +169,8 @@ class AdvancedLaneLines():
 if __name__ == "__main__":
 
     advanced_lane_finding = AdvancedLaneLines()
-    white_output = 'project_video_test.mp4'
-    clip1 = VideoFileClip("project_video.mp4")
+    white_output = 'challenge_video_test.mp4'
+    clip1 = VideoFileClip("challenge_video.mp4")
     white_clip = clip1.fl_image(advanced_lane_finding.process_image) #NOTE: this function expects color images!!
     white_clip.write_videofile(white_output, audio=False)
 

@@ -13,8 +13,6 @@ class Line():
     
     def __init__(self):
         self.n = 15
-        # was the line detected in the last iteration?
-        self.detected = False  
         # x values of the last n fits of the line
         self.recent_xfitted = [] 
         #average x values of the fitted line over the last n iterations
@@ -27,8 +25,6 @@ class Line():
         self.radius_of_curvature = None 
         #distance in meters of vehicle center from the line
         self.line_base_pos = None 
-        #difference in fit coefficients between last and new fits
-        self.diffs = np.array([0,0,0], dtype='float') 
         #x values for detected line pixels
         self.allx = None  
         #y values for detected line pixels
@@ -62,7 +58,6 @@ def get_line(linex_base,img,margin, minpix,old_line):
         win_x_high = x_current + margin
         # Draw the windows on the visualization image
         cv2.rectangle(out_img,(win_x_low,win_y_low),(win_x_high,win_y_high),(0,255,0), 2) 
-        #cv2.imshow("out_img",out_img)
         # Identify the nonzero pixels in x and y within the window
         good_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_x_low) & (nonzerox < win_x_high)).nonzero()[0]
         # Append these indices to the lists
@@ -73,8 +68,6 @@ def get_line(linex_base,img,margin, minpix,old_line):
             countGoodWindows += 1
     # Concatenate the arrays of indices
     lane_inds = np.concatenate(lane_inds)
-    #print("GoodWindows: ", countGoodWindows)
-    #cv2.imshow("out_img",out_img)
     
     linex = nonzerox[lane_inds]
     liney = nonzeroy[lane_inds] 
@@ -89,8 +82,6 @@ def get_line(linex_base,img,margin, minpix,old_line):
     if(len(line.recent_xfitted) > line.n):
         line.recent_xfitted.pop(0)
 
-    
-    line.diffs = np.subtract(line_fit,line.current_fit)
     line.recent_xfitted.append(fitx)
     line.bestx = np.mean(line.recent_xfitted,axis=0)
     line.best_fit = np.polyfit(ploty, line.bestx, 2)
@@ -108,20 +99,12 @@ def get_line(linex_base,img,margin, minpix,old_line):
 def find_lane_lines(img,right_line,left_line):
     histogram = np.sum(img[img.shape[0]/2:,:], axis=0)
     out_img = np.dstack((img, img, img))*255
-
-    midpoint = np.int(histogram.shape[0]/2)
-    plt.plot(histogram)
-    #plt.waitforbuttonpress()
    
-    # TODO check if max is greater than some threshold to be a line
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 
-    #center_offset =((img.shape[1]/2) - ((rightx_base - leftx_base)/2 + leftx_base))*xm_per_pix 
-
     lane_width_pixels = rightx_base-leftx_base
-    #print("lane_width_pixels: ",lane_width_pixels)
-    
+
     if(sanity_check(img) is False):
         return False, right_line, left_line
     
@@ -131,15 +114,12 @@ def find_lane_lines(img,right_line,left_line):
     if(abs(right_line.radius_of_curvature - left_line.radius_of_curvature)>10000):
         return False, right_line, left_line
 
-
-   
-    
-    #cv2.imshow("warped",img)
-    #cv2.waitKey(1)
-    plt.close()
-
     return True, new_left_line, new_right_line
 
+
+#
+# Function to check if the lane lines found in the binary image make sense
+#
 def sanity_check(img):
     histogram = np.sum(img[img.shape[0]/2:,:], axis=0)
     out_img = np.dstack((img, img, img))*255
@@ -155,7 +135,6 @@ def sanity_check(img):
 
     lane_width_pixels = rightx_base-leftx_base
     lane_width_pixels_top = rightx_base_top-leftx_base_top
-
 
     if(leftx_base <= 45 or rightx_base <= 45):
         #bad binary image
@@ -180,6 +159,9 @@ def update_lane_lines_with_new_frame(img,left_line, right_line):
     #print("Update!!")
     return True,left_line, right_line
 
+#
+# Update line model using posterior line model
+#
 def update_line(img,line):
     line_fit = line.current_fit
 
@@ -215,27 +197,25 @@ def update_line(img,line):
     # Draw the lane onto the warped blank image
     cv2.fillPoly(window_img, np.int_([line_line_pts]), (0,255, 0))
     result = cv2.addWeighted(out_img, 1, window_img, 0.3, 0)
-    #cv2.imshow("out_img",out_img)
     
-
     if(len(line.recent_xfitted) > line.n):
         line.recent_xfitted.pop(0)
 
-    line.diffs = np.subtract(line_fit,line.current_fit)
     line.recent_xfitted.append(line_fitx)
     line.bestx = np.mean(line.recent_xfitted,axis=0)
     line.best_fit = np.polyfit(ploty, line.bestx, 2)
     line.current_fit = line_fit
     line.radius_of_curvature = get_radius_curvature(line.best_fit)
     line.line_base_pos = abs(img.shape[1] / 2 - line_fitx[-1]) * xm_per_pix 
-    #print(line_fitx[0])
-    #print(img.shape[0]/2)
     line.allx = linex
     line.ally = liney
-    #print(line.line_base_pos, " (m)")
-    #cv2.waitKey(0)
+
     return line
 
+
+#
+# Get the radius of curvature for a polynomial line 
+#
 def get_radius_curvature(line_fit):
     ploty = np.linspace(0, 719, num=720)
 

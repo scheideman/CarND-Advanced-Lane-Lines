@@ -27,10 +27,6 @@ def calibrate_camera(nx,ny,file_path):
             cv2.cornerSubPix(gray,corners,(11,11),(-1,-1),criteria)
             imgpoints.append(corners)
 
-            #cv2.drawChessboardCorners(img,(nx,ny),corners,ret)
-            #cv2.imshow("Corners",img)
-            #cv2.waitKey(250)
-
     ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1],None,None) 
     
     print("Camera calibration status: {}".format(ret))
@@ -45,5 +41,16 @@ if __name__ == "__main__":
     cv2.imshow("raw",img)
     undist = cv2.undistort(img,camera_mtx,distortion,camera_mtx, None)
     cv2.imshow("undist",undist)
-    cv2.imwrite("writeup_files/calibration.jpg",undist)
-    cv2.waitKey(0)
+
+
+    f, (ax1, ax2) = plt.subplots(1, 2, figsize=(24, 9))
+    f.tight_layout()
+    ax1.imshow(img)
+    ax1.set_title('Original Image', fontsize=50)
+    ax2.imshow(undist)
+    ax2.set_title('Undistorted Image', fontsize=50)
+    plt.subplots_adjust(left=0., right=1, top=0.9, bottom=0.)   
+
+    plt.savefig("writeup_files/calibration1.jpg")
+    #cv2.imwrite(,sidebyside)
+    
