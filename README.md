@@ -34,6 +34,7 @@ The goals / steps of this project are the following:
  * For the perpective transform I hardcoded the following `src` and `dst` points
    * `src = np.float32([(600,450), (700,450), (200,720),(1150,720)`
     * `dst = np.float32([(300,0), (1000,0), (300,720), (1000,720)])`
+ * Below is a image showing the top-down view
 ![Alt text](https://github.com/scheideman/CarND-Advanced-Lane-Lines/blob/master/output_images/topdown_straight_lines2.jpg?raw=true "Topdown image")
  
 4. Find lane lines by fitting polynomial to identified pixels
@@ -41,8 +42,9 @@ The goals / steps of this project are the following:
  * To find the lane lines a sliding window search was used, starting at the two peaks of the histogram of the bottom half of   the image.
  * 9 windows were used with a width of `margin`, with their centers adjusted if greater than `min_pix` lane pixels fell within the window. Then all the pixels identified in those windows were used to fit a line with the `np.polyfit` function
  * After the lane lines are found in one frame, for the next frame the same line is used with all the pixels falling within a `margin` around the posterior line used to calculate the new line. This functionality is in the `update_line` function in lane_tracking.py
+ * Below shows the window regions and found pixels from the sliding window search
 ![Alt text](https://github.com/scheideman/CarND-Advanced-Lane-Lines/blob/master/output_images/lane_line2_4185.39704572.jpg?raw=true "sliding window image")
-5. Find radius of curvature and position of the car with respect ?raw=true "Sliding window")
+5. Find radius of curvature and position of the car with respect center of lane
  * With the polynomial fit parameters for the line found in step four, the radius of curvature is calculated in the `get_radius_curvature` function in lane_tracking.py. The bottom of the image is the y value used for calculating the radius of curvature 
  * The cars offset from the center of the lane is also calculated on line 135 in advanced_lane_finding.py, using the x positions of the fit line at the bottom of the image.
  * Both the radius of curvature and center offset are display on the output image in meters as seen below 
@@ -56,3 +58,7 @@ https://youtu.be/7ua9s3tet0c
 ---
 
 ## Discussion
+This project was a lot of fun and presented me with several challenges:
+* The first challenge was finding a good binary image to extract lane lines from. This required a lot of testing and fine tuning, with different threshold values for the sobel filter thresholding as well as colorspace thresholding. My end result does not not transfer well to the challenge video unfortunately. Hard coding threshold values is never very robust and I suffered the same problem with the first project, so finding a more dynamic way to set threshold values is one area that could use improvement.
+* The next challenge was finding the lane lines. I used the sliding window code from the lectures for finding lines as well as updating lines, after the a line was successfully found in the previous frame. However my initial implementation did not take into account losing track of the line or a poorly modeled line. To fix this I added a `sanity_check` function to check if the lines were roughly parallel,and approximatley 3.7 meter apart. I also check if the intial histograms for estimating the start of a line are greater than a cutoff value for determining if its a line. Finally I also check if the radius of curvature for both lines are reasonably close. These additions made the lane finding algorithm more robust to changing light and road conditions.
+* The final challenge I had was if the algorithm did lose track of the line how to proceed. For this I kept a average of the last 15 line models found and used it for my best guess of the line when tracking was lost. Alse after 5 frames of poor tracking or a bad model I then restart the sliding window search for lane finding. This also helps reduce the lane from jittering with each new frame.
