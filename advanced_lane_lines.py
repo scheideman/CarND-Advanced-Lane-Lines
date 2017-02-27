@@ -6,6 +6,7 @@ import os
 from camera_calibrate import calibrate_camera
 from moviepy.editor import VideoFileClip
 from lane_tracking import find_lane_lines, update_lane_lines_with_new_frame, Line, get_radius_curvature
+from PIL import Image
 
 test_images = os.listdir("test_images/")
 undistorted_images = os.listdir("undistorted_images/")
@@ -51,19 +52,12 @@ class AdvancedLaneLines():
                 self.TRACKING, left_line, right_line = find_lane_lines(warped, self.right_line,self.left_line)
 
         result = self.visualize_lane(self.left_line,self.right_line, undist,warped)
-        #print("Left: ", self.left_line.radius_of_curvature)
-        #print("Right: ", self.right_line.radius_of_curvature)
-        #cv2.imshow("warped", warped)
         cv2.imshow("result", cv2.cvtColor(result,cv2.COLOR_RGB2BGR))
-        #cv2.waitKey(25)
-        # won't work binary image
         return result
 
     def binarize_image(self,img, sobel_kernel = 3, sx_thresh =(20,100),sy_thresh =(25,255),s_thresh=(170,255) , sdir_thresh = (0,np.pi/2), hue_thresh = (20,50),lightness_thresh = (150,255)):
     
-        #cv2.imshow("raw",img)
         hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
-        #hls = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
         gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
         saturation = hls[:,:,2]
@@ -98,22 +92,8 @@ class AdvancedLaneLines():
         lightness_binary[ (lightness >= lightness_thresh[0]) & (lightness <= lightness_thresh[1])] = 1
 
         color_binary = np.dstack(( np.zeros_like(sxbinary), sxbinary, s_binary)) 
-        #color_binary = np.dstack(( sdir_binary, sxbinary, s_binary)) 
         overall_binary = np.zeros_like(sdir_binary)
-        #overall_binary[(s_binary==1) & (sdir_binary==1) & (sxbinary==1)] = 1
         overall_binary[((sybinary==1) & (sxbinary==1)) | (((s_binary==1) & (lightness_binary==1))==1)] = 1
-
-        #cv2.imshow("color_binary", color_binary)
-        #cv2.imshow("Overall", overall_binary)
-        #cv2.imshow("sxbinary",sxbinary)
-        #cv2.imshow("s_binary", s_binary)
-        #cv2.imshow("hue_binary", hue_binary)
-        #cv2.imshow("light_binary", lightness_binary)
-        #cv2.imshow("sy_binary", sybinary)
-        #cv2.imshow("sdir_binary", sdir_binary)
-        #plt.imshow(s_binary)
-        #plt.waitforbuttonpress()
-        #cv2.waitKey(0)
         return overall_binary
     
     def visualize_lane(self,left_line, right_line, img, warped):
@@ -152,7 +132,7 @@ class AdvancedLaneLines():
         position = ""
         if(center_offset < 0):
             position = "to the right"
-            self.center_offset = self.center_offset*-1
+            center_offset = -1*center_offset
         elif(center_offset > 0):
             position = "to the left"
 
@@ -161,51 +141,33 @@ class AdvancedLaneLines():
 
         return result
 
-
-if __name__ == "__main__":
-
-    advanced_lane_finding = AdvancedLaneLines()
-    white_output = 'challenge_video_test.mp4'
-    clip1 = VideoFileClip("challenge_video.mp4")
-    white_clip = clip1.fl_image(advanced_lane_finding.process_image) #NOTE: this function expects color images!!
-    white_clip.write_videofile(white_output, audio=False)
-
-    """
+def assignment_test():
     for i,x in enumerate(test_images):
-        #img = cv2.imread("test_images/" + x)
-        #cv2.imshow("Raw",img)
-        #undist = cv2.undistort(img,camera_mtx,distortion,camera_mtx, None)
-        #cv2.imwrite("undistorted_images/" + x,undist)
         print(x)
         undist = cv2.imread("undistorted_images/"+ x)
 
-        #cv2.imshow("Undist",undist)
-
-        hls = cv2.cvtColor(undist, cv2.COLOR_BGR2HLS)
-        hsv = cv2.cvtColor(undist, cv2.COLOR_BGR2HSV)
-        # dir_threshold(image, sobel_kernel=15, thresh=(0.7, 1.3)) 
-        H = hls[:,:,0]
-        L = hls[:,:,1]
-        S = hls[:,:,2]
-        #cv2.imshow("H",hsv[:,:,0])
-        #cv2.imshow("S",hsv[:,:,1])
-        #cv2.imshow("V",hsv[:,:,2])
-        #gray = cv2.cvtColor(undist, cv2.COLOR_BGR2GRAY)
-        #cv2.imshow("GRAY",S)
-        binary = binarize_image(undist,sobel_kernel = 3, sx_thresh =(10,255),lightness_thresh = (100,255), sy_thresh=(25,255),s_thresh=(130,255))
-        #plt.imshow(binary)
-        #plt.waitforbuttonpress()
-        #TL, TR, BL, BR
+        cv2.imshow("Undist",undist)
+        binary =  advanced_lane_finding.binarize_image(undist,sobel_kernel = 3, sx_thresh =(10,255),lightness_thresh = (100,255), sy_thresh=(25,255),s_thresh=(130,255))
         src = np.float32([(600,450), (700,450), (200,720),(1150,720)])
-        #dst = np.float32([(224,484), (800+224,484), (224,150+484), (800+224,150+484)])
         dst = np.float32([(300,0), (1000,0), (300,720), (1000,720)])
 
         M = cv2.getPerspectiveTransform(src, dst)
         Minv = cv2.getPerspectiveTransform(dst,src)
-        #warped = cv2.warpPerspective(binary, M, (binary.shape[1],binary.shape[0])) 
         warped = cv2.warpPerspective(binary, M, (1280,720)) 
 
-        left_fit, right_fit = find_lane_lines(warped)
-        print("left: {0}".format(get_radius_curvature(left_fit)))
-        print("right: {0}".format(get_radius_curvature(right_fit)))
-    """
+        left_line = Line()
+        right_line = Line()
+        ret, left_line, right_line = find_lane_lines(warped, right_line,left_line)
+        result =  advanced_lane_finding.visualize_lane(left_line,right_line, undist,warped)
+
+
+if __name__ == "__main__":
+
+    advanced_lane_finding = AdvancedLaneLines()
+    white_output = 'project_video_submission.mp4'
+    clip1 = VideoFileClip("project_video.mp4")
+    white_clip = clip1.fl_image(advanced_lane_finding.process_image)
+    white_clip.write_videofile(white_output, audio=False)
+
+    
+    

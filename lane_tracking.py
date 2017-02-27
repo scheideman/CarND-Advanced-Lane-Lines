@@ -8,7 +8,6 @@ import os
 ym_per_pix = 30/720 # meters per pixel in y dimension
 xm_per_pix = 3.7/700 # meters per pixel in x dimension
 
-# Define a class to receive the characteristics of each line detection
 class Line():
     
     def __init__(self):
@@ -91,15 +90,15 @@ def get_line(linex_base,img,margin, minpix,old_line):
     line.allx = linex
     line.ally = liney
 
-
     out_img[nonzeroy[lane_inds], nonzerox[lane_inds]] = [255, 0, 0]
-    
+
+    #cv2.imwrite("output_images/"+"lane_line2_"+str(line.radius_of_curvature)+".jpg",out_img)
     return line
 
 def find_lane_lines(img,right_line,left_line):
     histogram = np.sum(img[img.shape[0]/2:,:], axis=0)
     out_img = np.dstack((img, img, img))*255
-   
+    midpoint = np.int(histogram.shape[0]/2)
     leftx_base = np.argmax(histogram[:midpoint])
     rightx_base = np.argmax(histogram[midpoint:]) + midpoint
 
