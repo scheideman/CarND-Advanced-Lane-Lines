@@ -56,8 +56,24 @@ class AdvancedLaneLines():
         return result
 
     def binarize_image(self,img, sobel_kernel = 3, sx_thresh =(20,100),sy_thresh =(25,255),s_thresh=(170,255) , sdir_thresh = (0,np.pi/2), hue_thresh = (20,50),lightness_thresh = (150,255)):
-    
-        hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
+        
+
+        HSV = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
+
+        # For yellow
+        yellow = cv2.inRange(HSV, (20, 100, 100), (50, 255, 255))
+
+        # For white
+        sensitivity_1 = 68 
+        white = cv2.inRange(HSV, (0,0,255-sensitivity_1), (255,20,255))
+
+        sensitivity_2 = 60
+        HSL = cv2.cvtColor(img, cv2.COLOR_RGB2HLS)
+        white_2 = cv2.inRange(HSL, (0,255-sensitivity_2,0), (255,255,sensitivity_2))
+        white_3 = cv2.inRange(img, (200,200,200), (255,255,255))
+
+        overall_binary =  yellow | white | white_2 | white_3
+        """hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
 
         gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
         saturation = hls[:,:,2]
@@ -93,7 +109,7 @@ class AdvancedLaneLines():
 
         color_binary = np.dstack(( np.zeros_like(sxbinary), sxbinary, s_binary)) 
         overall_binary = np.zeros_like(sdir_binary)
-        overall_binary[((sybinary==1) & (sxbinary==1)) | (((s_binary==1) & (lightness_binary==1))==1)] = 1
+        overall_binary[((sybinary==1) & (sxbinary==1)) | (((s_binary==1) & (lightness_binary==1))==1)] = 1"""
         return overall_binary
     
     def visualize_lane(self,left_line, right_line, img, warped):
@@ -164,8 +180,8 @@ def assignment_test():
 if __name__ == "__main__":
 
     advanced_lane_finding = AdvancedLaneLines()
-    white_output = 'project_video_submission.mp4'
-    clip1 = VideoFileClip("project_video.mp4")
+    white_output = 'challenge_video_exp.mp4'
+    clip1 = VideoFileClip("challenge_video.mp4")
     white_clip = clip1.fl_image(advanced_lane_finding.process_image)
     white_clip.write_videofile(white_output, audio=False)
 
